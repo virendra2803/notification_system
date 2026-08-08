@@ -8,7 +8,7 @@ from .serializers import (
     NotificationTemplateSerializer,
     NotificationLogSerializer,
 )
-
+from .services.notification_service import NotificationService
 
 class TriggerViewSet(viewsets.ModelViewSet):
     queryset = Trigger.objects.all()
@@ -39,7 +39,33 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @action(detail=True, methods=["post"], url_path="test-send")
+    def test_send(self, request, pk=None):
+        template = self.get_object()
 
+        if not template.is_enabled:
+            return Response(
+                {"error": "Template is disabled"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        service = NotificationService()
+
+        try:
+            result = service.send(template, None)
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": "Test notification sent successfully",
+                "result": result,
+            },
+            status=status.HTTP_200_OK,
+        )
 class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = NotificationLog.objects.all()
     serializer_class = NotificationLogSerializer
