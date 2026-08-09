@@ -9,6 +9,9 @@ from .serializers import (
     NotificationLogSerializer,
 )
 from .services.notification_service import NotificationService
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class TriggerViewSet(viewsets.ModelViewSet):
     queryset = Trigger.objects.all()
@@ -49,11 +52,36 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        user = User.objects.first()
+
+        if not user:
+            return Response(
+                {"error": "No test user available"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         service = NotificationService()
 
         try:
-            result = service.send(template, None)
-        except ValueError as e:
+            result = service.send(template, user)
+
+            NotificationLog.objects.create(
+                user=user,
+                trigger=template.trigger,
+                channel=template.channel,
+                status="SUCCESS",
+                response=str(result),
+            )
+
+        except Exception as e:
+            NotificationLog.objects.create(
+                user=user,
+                trigger=template.trigger,
+                channel=template.channel,
+                status="FAILED",
+                response=str(e),
+            )
+
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
